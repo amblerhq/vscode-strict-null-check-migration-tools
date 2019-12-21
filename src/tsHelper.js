@@ -5,24 +5,30 @@ const fs = require('fs');
 
 module.exports.getImportsForFile = function getImportsForFile(file, srcRoot) {
     const fileInfo = ts.preProcessFile(fs.readFileSync(file).toString());
+    const ignored = [
+        "graphql-tools/dist/Interfaces",
+        "libphonenumber-js/custom",
+        "react-dom/server"
+    ]
     return fileInfo.importedFiles
         .map(importedFile => importedFile.fileName)
-        .filter(fileName => !/^vs\/css!/.test(fileName)) // remove css imports
-        .filter(x => /\//.test(x)) // remove node modules (the import must contain '/')
+        .filter(x => x.includes("/") || (x.includes(".") && !x.includes("lodash"))) // remove node modules (the import must contain '/')
+        .filter(x => !x.includes("@") && !x.includes("json") && !x.includes("generated"))
+        .filter(x => !ignored.includes(x))
         .map(fileName => {
-            if (/(^\.\/)|(^\.\.\/)/.test(fileName)) {
-                return path.join(path.dirname(file), fileName);
-            }
-            if (/^vs/.test(fileName)) {
-                return path.join(srcRoot, fileName);
-            }
-            return fileName;
+            return path.join(path.dirname(file), fileName);
         }).map(fileName => {
             if (fs.existsSync(`${fileName}.ts`)) {
                 return `${fileName}.ts`;
             }
+            if (fs.existsSync(`${fileName}/index.ts`)) {
+                return `${fileName}/index.ts`;
+            }
             if (fs.existsSync(`${fileName}.js`)) {
                 return `${fileName}.js`;
+            }
+            if (fs.existsSync(`${fileName}.tsx`)) {
+                return `${fileName}.tsx`;
             }
             if (fs.existsSync(`${fileName}.d.ts`)) {
                 return `${fileName}.d.ts`;
